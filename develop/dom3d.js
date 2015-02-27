@@ -1,15 +1,8 @@
 /**
  * Created by lenrinfvck on 2015-02-27.
  */
-(function(){
-    var transform = function(element, value, key) {
-        key = key || "Transform";
-        ["Moz", "O", "Ms", "Webkit", ""].forEach(function(prefix) {
-            element.style[prefix + key] += ' '+value;
-        });
-        return element;
-    };
-    var $ = function(selector){
+    //dom类库
+    /*var $ = function(selector){
         var $$ = function(str){
             return document.querySelectorAll(str);
         };
@@ -21,6 +14,7 @@
         for(var n in parObj){
             obj[n] = parObj[n];
         }
+        return obj;
     };
     NodeList.prototype.each = function(callback){
         var _this = this;
@@ -29,49 +23,82 @@
             if(_this[n].style)
                 callback.apply(_this[n],[_this[n],parseInt(n)]);
         }
-    };
+    };*/
+
+    //dom3d对象
     var Ntrf3d = function(el,pos){
         this.dom = el;
-        this.x = pos[0];
-        this.y = pos[1];
-        this.z = pos[2];
-        this.setPos(this.x, this.y, this.z);
+        this.ePos = pos;
+        this.transform = function(element, value, key){
+            key = key || "Transform";
+            ["Moz", "O", "Ms", "Webkit", ""].forEach(function(prefix) {
+                element.style[prefix + key] = ' '+value;
+            });
+            return element;
+        };
+        this.init();
     };
     Ntrf3d.prototype = {
-        setPos : function(x, y, z){
+        init : function(){
+            var el = this;
+            el.setPos(this.ePos);
+            $(this.dom).bind('camera_move',function(e, x, y, z){el.viewPos(x, y, z)});
+        },
+        setPos : function(pos){
             var el = this.dom;
-            transform(el, 'translate3d('+x+'px,'+y+'px,'+z+'px)');
+            this.ePos = pos;
+            this.transform(el, 'translate3d('+pos[0]+'px,'+pos[1]+'px,'+pos[2]+'px)');
+        },
+        viewPos : function(x, y, z){
+            var cPos = [];
+            cPos.push(x,y,z);
+            var ePos = this.ePos;
+            var pos = [];
+            cPos.forEach(function(val, index){
+                pos[index] = ePos[index]-val
+            });
+            this.transform(this.dom, 'translate3d('+pos[0]+'px,'+pos[1]+'px,'+pos[2]+'px)');
         }
     };
-    var Camera = function(pos, point){
-        var x = pos[0]||0;
-        this.y = pos[1]||0;
-        this.z = pos[2]||0;
-        this.setPos(this.x, this.y, this.z);
+
+    //摄像机对象
+    var Camera = function(space, cOpt){
+        this.space = space;
+        this.cOpt = cOpt;
+        this.cPos = [0,0,0];
+        this.init(cOpt);
     };
     Camera.prototype = {
-        setPos : function(x, y, z){
-            $('.ntrStage').style.perspective=z+'px';
+        init : function(){
+            this.setFous(this.cOpt);
+            if(this.cOpt&&('cPos' in this.cOpt)){
+                this.setPos(this.cOpt.cPos);
+            }
+        },
+        setFous : function(cOpt){
+            var space = this.space;
+            var preset = {
+                filmSize : 36,
+                focalDis : 50
+            };
+            var opt = $.extend({},preset, cOpt);
+            var perspective = (opt.focalDis/(opt.filmSize/2))*(space.width()/2);
+            space.css('perspective', perspective+'px');
+        },
+        setPos : function(cPos){
+            var space = this.space;
+            this.cPos = cPos;
+            $(space).children('.dom3d').trigger('camera_move', cPos);
         }
     };
-    console.log($('#div1'),$('#div1').tagName);
-    // console.log(document.getElementById('div1'));
-    console.log($(".dom3d"),$(".dom3d").length);
-    var dom3d = $(".dom3d");
-    var d = $('#div1');
-    //new Ntrf3d(d,[300,200,10]);
-    dom3d.each(function(el,index){
-        new Ntrf3d(el,[index*100,index*100,-index*200])
-        //transform(el, 'rotateY(45deg)');
+jQuery.fn.dom3d = function(opt){
+    var $space = $(this);
+    $space.children('.dom3d').each(function(index,el){
+        new Ntrf3d(el,[index*100+100,index*100,-index*200])
     });
-    var camera = new Camera([0,0,100]);
-    var con = $('#controller button');
-    con.addEventListener('click',submit);
-    function submit(){
-        var x = $('#cX').value;
-        var y = $('#cY').value;
-        var z = $('#cZ').value;
-        console.log(z+'px');
-        camera.setPos(x, y, z);
+    var camera = new Camera($space, opt);
+    return {
+        camera : camera
     }
-})();
+};
+
